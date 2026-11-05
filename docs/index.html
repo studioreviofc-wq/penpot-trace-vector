@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trace Vector</title>
+<style>
+  :root {
+    --bg: #18191b; --panel: #212426; --line: #2e3434; --text: #e8eaee;
+    --muted: #8f9da3; --accent: #31efb8; --accent-text: #18191b; --danger: #ff6b6b; --warn: #ffc25c;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f3f4f6; --line: #e1e3e6; --text: #000000;
+    --muted: #6b7277; --accent: #6911d4; --accent-text: #ffffff; --danger: #d32f2f; --warn: #a96500;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 12px/1.4 "Work Sans", system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+  h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); margin: 0 0 6px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .head h2 { margin: 0; }
+  select, .btn { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; font: inherit; }
+  select { padding: 3px 6px; font-size: 11px; cursor: pointer; }
+  .btn { padding: 7px 8px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .preview { position: relative; height: 200px; border-radius: 8px; border: 1px solid var(--line); overflow: hidden;
+    background: repeating-conic-gradient(var(--panel) 0 25%, var(--bg) 0 50%) 0 0 / 16px 16px;
+    display: flex; align-items: center; justify-content: center; }
+  .preview img, .preview canvas { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px);
+    object-fit: contain; display: none; }
+  .preview .empty { color: var(--muted); text-align: center; padding: 0 16px; }
+  .preview .spin { position: absolute; left: 6px; top: 6px; width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--muted); border-top-color: transparent; animation: r .8s linear infinite; display: none; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .pill { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff;
+    border-radius: 4px; padding: 2px 6px; font-size: 11px; display: none; }
+  .view { position: absolute; left: 6px; bottom: 6px; display: flex; gap: 2px; background: rgba(0,0,0,.55);
+    border-radius: 6px; padding: 2px; }
+  .view button { border: 0; background: none; color: #cfd6d9; font: inherit; font-size: 11px; padding: 2px 8px;
+    border-radius: 4px; cursor: pointer; }
+  .view button.on { background: rgba(255,255,255,.18); color: #fff; }
+  .stats { display: flex; gap: 10px; color: var(--muted); font-size: 11px; margin-top: 6px; min-height: 15px;
+    font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+  .stats b { color: var(--text); font-weight: 600; }
+  .warn { color: var(--warn); font-size: 11px; margin-top: 4px; display: none; }
+  .styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+  .styles button, .seg button { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 4px; font: inherit; cursor: pointer; }
+  .styles button.on, .seg button.on { border-color: var(--accent); color: var(--accent); }
+  .styles button:disabled, .seg button:disabled { opacity: .45; cursor: not-allowed; }
+  .slider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .slider span:first-child { width: 86px; color: var(--muted); flex-shrink: 0; }
+  .slider span:last-child { width: 34px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; user-select: none; }
+  .check input { accent-color: var(--accent); margin: 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .sub { margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; }
+  details[open] summary::before { content: "▾ "; }
+  details[open] summary { margin-bottom: 6px; }
+  #apply { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
+    padding: 10px; font: inherit; font-weight: 600; cursor: pointer; }
+  #apply:disabled { opacity: .45; cursor: not-allowed; }
+  .actions { display: flex; flex-direction: column; gap: 6px; }
+  #status { min-height: 16px; color: var(--muted); }
+  #status.err { color: var(--danger); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="head">
+      <h2 data-i18n="preview"></h2>
+      <select id="lang" aria-label="Language">
+        <option value="en">English</option>
+        <option value="pt">Português</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+    <div class="preview" id="previewBox">
+      <canvas id="orig"></canvas>
+      <img id="vec" alt="">
+      <div class="empty" id="empty"></div>
+      <div class="spin" id="spin"></div>
+      <div class="view" id="view" hidden>
+        <button data-v="vec" class="on" data-i18n="viewVector"></button>
+        <button data-v="orig" data-i18n="viewOriginal"></button>
+      </div>
+      <div class="pill" id="count"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="warn" id="warn"></div>
+  </section>
+
+  <section>
+    <h2 data-i18n="style"></h2>
+    <div class="styles" id="styles">
+      <button data-s="logo" data-i18n="sLogo"></button>
+      <button data-s="illus" data-i18n="sIllus"></button>
+      <button data-s="photo" data-i18n="sPhoto"></button>
+      <button data-s="bw" data-i18n="sBw"></button>
+      <button data-s="sketch" data-i18n="sSketch"></button>
+      <button data-s="pixel" data-i18n="sPixel"></button>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-i18n="adjust"></h2>
+    <div id="colorCtl">
+      <div class="slider"><span data-i18n="colors"></span><input type="range" id="colors" min="2" max="65" value="8"><span id="colorsVal"></span></div>
+    </div>
+    <div id="bwCtl" hidden>
+      <div class="slider"><span data-i18n="threshold"></span><input type="range" id="threshold" min="10" max="245" value="128"><span id="thresholdVal"></span></div>
+    </div>
+    <div class="slider"><span data-i18n="speckle"></span><input type="range" id="speckle" min="0" max="64" value="4"><span id="speckleVal"></span></div>
+    <div class="slider"><span data-i18n="smooth"></span><input type="range" id="smooth" min="0" max="30" value="10"><span id="smoothVal"></span></div>
+    <div class="slider"><span data-i18n="corners"></span><input type="range" id="corners" min="0" max="180" value="60"><span id="cornersVal"></span></div>
+    <label class="check"><input type="checkbox" id="removeBg"><span data-i18n="removeBg"></span></label>
+    <div class="slider" id="bgTolRow" hidden><span data-i18n="tolerance"></span><input type="range" id="bgTol" min="2" max="60" value="18"><span id="bgTolVal"></span></div>
+  </section>
+
+  <section>
+    <details id="adv">
+      <summary data-i18n="advanced"></summary>
+      <div class="sub"><div class="hint" data-i18n="curves"></div>
+        <div class="seg" id="curve">
+          <button data-c="spline" class="on" data-i18n="cSpline"></button>
+          <button data-c="polygon" data-i18n="cPolygon"></button>
+          <button data-c="pixel" data-i18n="cPixel"></button>
+        </div>
+      </div>
+      <div class="sub"><div class="hint" data-i18n="layers"></div>
+        <div class="seg" id="stack">
+          <button data-h="stacked" class="on" data-i18n="hStacked"></button>
+          <button data-h="cutout" data-i18n="hCutout"></button>
+        </div>
+      </div>
+      <div class="sub"><div class="hint" data-i18n="quality"></div>
+        <div class="seg" id="quality">
+          <button data-q="1200" data-i18n="qFast"></button>
+          <button data-q="2000" class="on" data-i18n="qHigh"></button>
+          <button data-q="3000" data-i18n="qMax"></button>
+        </div>
+      </div>
+      <label class="check" id="adaptiveRow" hidden><input type="checkbox" id="adaptive"><span data-i18n="adaptive"></span></label>
+    </details>
+  </section>
+
+  <section>
+    <h2 data-i18n="placement"></h2>
+    <div class="seg" id="place">
+      <button data-p="side" class="on" data-i18n="pSide"></button>
+      <button data-p="over" data-i18n="pOver"></button>
+    </div>
+    <div class="hint" id="placeHint"></div>
+  </section>
+
+  <div class="actions">
+    <button id="apply" disabled></button>
+    <div class="row2">
+      <button class="btn" id="download" disabled data-i18n="download"></button>
+      <button class="btn" id="copy" disabled data-i18n="copy"></button>
+    </div>
+  </div>
+  <div id="status"></div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+
+  // ---------- Idiomas ----------
+  const I18N = {
+    en: {
+      preview: "Preview", viewVector: "Vector", viewOriginal: "Original", style: "Style",
+      sLogo: "Logo", sIllus: "Illustration", sPhoto: "Photo", sBw: "Black & white", sSketch: "Drawing", sPixel: "Pixel art",
+      adjust: "Adjust", colors: "Colors", auto: "Auto", threshold: "Threshold", speckle: "Clean specks",
+      smooth: "Smoothness", corners: "Corners", removeBg: "Remove solid background", tolerance: "Tolerance",
+      advanced: "Advanced", curves: "Curves", cSpline: "Curves", cPolygon: "Straight", cPixel: "Pixels",
+      layers: "Shapes", hStacked: "Stacked", hCutout: "Cut out", quality: "Working resolution",
+      qFast: "Fast", qHigh: "High", qMax: "Max", adaptive: "Adaptive threshold (uneven lighting)",
+      placement: "Place vector", pSide: "Next to image", pOver: "On top",
+      hintSide: "Creates an editable vector group to the right of the original layer.",
+      hintOver: "Creates the vector exactly over the original and hides the image (Ctrl+Z to undo).",
+      empty: "Select a layer with an image (or any layer) to vectorize it.",
+      loading: "Loading image…", tracing: "Tracing…",
+      applyOne: "Vectorize", applyMany: "Vectorize {n} layers",
+      download: "Download SVG", copy: "Copy SVG", copied: "SVG copied to clipboard.",
+      shapes: "shapes", palette: "colors", size: "size",
+      tooMany: "Many shapes: Penpot may slow down. Reduce colors or raise “Clean specks”.",
+      photoNote: "Photos create many shapes. Works best for logos, icons and flat art.",
+      progress: "Vectorizing {i} of {n}…", done: "Done: {n} vector(s) created.",
+      error: "Error: ", NOT_FOUND: "Layer not found", NO_SVG_API: "This Penpot version can't import SVG from plugins",
+      SVG_FAILED: "Penpot couldn't import the vector", WASM_LOAD: "Couldn't load the tracing engine",
+      EMPTY_SVG: "Nothing to trace with these settings",
+    },
+    pt: {
+      preview: "Prévia", viewVector: "Vetor", viewOriginal: "Original", style: "Estilo",
+      sLogo: "Logo", sIllus: "Ilustração", sPhoto: "Foto", sBw: "Preto e branco", sSketch: "Desenho", sPixel: "Pixel art",
+      adjust: "Ajustes", colors: "Cores", auto: "Auto", threshold: "Limiar", speckle: "Limpar manchas",
+      smooth: "Suavidade", corners: "Cantos", removeBg: "Remover fundo sólido", tolerance: "Tolerância",
+      advanced: "Avançado", curves: "Contorno", cSpline: "Curvas", cPolygon: "Retas", cPixel: "Pixels",
+      layers: "Formas", hStacked: "Empilhadas", hCutout: "Recortadas", quality: "Resolução de trabalho",
+      qFast: "Rápida", qHigh: "Alta", qMax: "Máxima", adaptive: "Limiar adaptativo (luz irregular)",
+      placement: "Colocar vetor", pSide: "Ao lado", pOver: "Por cima",
+      hintSide: "Cria um grupo de vetores editáveis à direita da camada original.",
+      hintOver: "Cria o vetor exatamente sobre a original e oculta a imagem (Ctrl+Z para desfazer).",
+      empty: "Selecione uma camada com imagem (ou qualquer camada) para vetorizar.",
+      loading: "Carregando imagem…", tracing: "Vetorizando…",
+      applyOne: "Vetorizar", applyMany: "Vetorizar {n} camadas",
+      download: "Baixar SVG", copy: "Copiar SVG", copied: "SVG copiado.",
+      shapes: "formas", palette: "cores", size: "tamanho",
+      tooMany: "Muitas formas: o Penpot pode ficar lento. Reduza as cores ou aumente “Limpar manchas”.",
+      photoNote: "Fotos geram muitas formas. Funciona melhor em logos, ícones e arte chapada.",
+      progress: "Vetorizando {i} de {n}…", done: "Pronto: {n} vetor(es) criado(s).",
+      error: "Erro: ", NOT_FOUND: "Camada não encontrada", NO_SVG_API: "Esta versão do Penpot não permite importar SVG por plugin",
+      SVG_FAILED: "O Penpot não conseguiu importar o vetor", WASM_LOAD: "Não foi possível carregar o motor de vetorização",
+      EMPTY_SVG: "Nada para vetorizar com esses ajustes",
+    },
+    es: {
+      preview: "Vista previa", viewVector: "Vector", viewOriginal: "Original", style: "Estilo",
+      sLogo: "Logo", sIllus: "Ilustración", sPhoto: "Foto", sBw: "Blanco y negro", sSketch: "Dibujo", sPixel: "Pixel art",
+      adjust: "Ajustes", colors: "Colores", auto: "Auto", threshold: "Umbral", speckle: "Limpiar manchas",
+      smooth: "Suavidad", corners: "Esquinas", removeBg: "Quitar fondo sólido", tolerance: "Tolerancia",
+      advanced: "Avanzado", curves: "Contorno", cSpline: "Curvas", cPolygon: "Rectas", cPixel: "Píxeles",
+      layers: "Formas", hStacked: "Apiladas", hCutout: "Recortadas", quality: "Resolución de trabajo",
+      qFast: "Rápida", qHigh: "Alta", qMax: "Máxima", adaptive: "Umbral adaptativo (luz irregular)",
+      placement: "Colocar vector", pSide: "Al lado", pOver: "Encima",
+      hintSide: "Crea un grupo de vectores editables a la derecha de la capa original.",
+      hintOver: "Crea el vector justo encima de la original y oculta la imagen (Ctrl+Z para deshacer).",
+      empty: "Selecciona una capa con imagen (o cualquier capa) para vectorizarla.",
+      loading: "Cargando imagen…", tracing: "Vectorizando…",
+      applyOne: "Vectorizar", applyMany: "Vectorizar {n} capas",
+      download: "Descargar SVG", copy: "Copiar SVG", copied: "SVG copiado.",
+      shapes: "formas", palette: "colores", size: "tamaño",
+      tooMany: "Muchas formas: Penpot puede ir lento. Reduce colores o sube “Limpiar manchas”.",
+      photoNote: "Las fotos generan muchas formas. Funciona mejor con logos, iconos y arte plano.",
+      progress: "Vectorizando {i} de {n}…", done: "Listo: {n} vector(es) creado(s).",
+      error: "Error: ", NOT_FOUND: "Capa no encontrada", NO_SVG_API: "Esta versión de Penpot no permite importar SVG desde plugins",
+      SVG_FAILED: "Penpot no pudo importar el vector", WASM_LOAD: "No se pudo cargar el motor de vectorización",
+      EMPTY_SVG: "Nada que vectorizar con estos ajustes",
+    },
+  };
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  function detectLang() {
+    const q = new URLSearchParams(location.search).get("lang");
+    if (q && I18N[q]) return q;
+    const saved = store.get("tracevector-lang");
+    if (saved && I18N[saved]) return saved;
+    const nav = (navigator.language || "en").slice(0, 2).toLowerCase();
+    return I18N[nav] ? nav : "en";
+  }
+  let lang = detectLang();
+  const t = (key, vars) => String(I18N[lang][key] ?? I18N.en[key] ?? key)
+    .replace(/\{(\w+)\}/g, (_, k) => (vars && vars[k] != null ? vars[k] : ""));
+  const errText = (err) => { const m = err && err.message ? err.message : String(err); return I18N.en[m] ? t(m) : m; };
+
+  // ---------- Estilos (valores iniciais dos controles) ----------
+  const PREVIEW_SIDE = 640;
+  const STYLES = {
+    logo:   { bw: false, colors: 8,  speckle: 6,  smooth: 10, corners: 60, curve: "spline",  stack: "stacked" },
+    illus:  { bw: false, colors: 24, speckle: 4,  smooth: 6,  corners: 60, curve: "spline",  stack: "stacked" },
+    photo:  { bw: false, colors: 65, speckle: 10, smooth: 4,  corners: 90, curve: "spline",  stack: "stacked", preset: "photo" },
+    bw:     { bw: true,  threshold: 128, speckle: 4, smooth: 10, corners: 60, curve: "spline", stack: "stacked" },
+    sketch: { bw: true,  threshold: 150, speckle: 2, smooth: 4,  corners: 40, curve: "spline", stack: "stacked", adaptive: true },
+    pixel:  { bw: false, colors: 16, speckle: 0,  smooth: 0,  corners: 60, curve: "pixel",   stack: "stacked" },
+  };
+  const savedCfg = (() => { try { return JSON.parse(store.get("tracevector-cfg") || "null"); } catch (e) { return null; } })();
+  const state = Object.assign({
+    style: "logo", bw: false, colors: 8, threshold: 128, speckle: 6, smooth: 10, corners: 60,
+    curve: "spline", stack: "stacked", adaptive: false, preset: null,
+    removeBg: false, bgTol: 18, quality: 2000, placement: "side",
+  }, savedCfg || {});
+  state.shapes = []; state.source = null; state.lastSvg = null; state.view = "vec";
+
+  // ---------- Tema ----------
+  const setTheme = (th) => document.documentElement.setAttribute("data-theme", th === "light" ? "light" : "dark");
+  setTheme(new URLSearchParams(location.search).get("theme"));
+
+  // ---------- Comunicação com o Penpot ----------
+  const pending = new Map();
+  let seq = 0;
+  const send = (msg) => parent.postMessage(msg, "*");
+  function request(type, data) {
+    const reqId = ++seq;
+    return new Promise((resolve, reject) => {
+      pending.set(reqId, { resolve, reject });
+      send({ type, reqId, ...data });
+    });
+  }
+  window.addEventListener("message", (e) => {
+    if (e.source !== window.parent) return;
+    const msg = e.data;
+    if (!msg || typeof msg !== "object") return;
+    if (msg.type === "theme") setTheme(msg.theme);
+    else if (msg.type === "selection") onSelection(msg.shapes || []);
+    else if (msg.type === "reply") {
+      const p = pending.get(msg.reqId);
+      if (!p) return;
+      pending.delete(msg.reqId);
+      msg.error ? p.reject(new Error(msg.error)) : p.resolve(msg);
+    }
+  });
+
+  // ---------- Motor (VTracer em Web Worker) ----------
+  const worker = new Worker("vtracer-worker.js");
+  const jobs = new Map();
+  let jobSeq = 0;
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.ready === false) { statusEl.className = "err"; statusEl.textContent = t("error") + t("WASM_LOAD"); return; }
+    const job = jobs.get(m.id);
+    if (!job) return;
+    jobs.delete(m.id);
+    m.error ? job.reject(new Error(m.error)) : job.resolve(m.svg);
+  };
+  function trace(img, options) {
+    const id = ++jobSeq;
+    const rgba = new Uint8Array(img.data); // cópia transferível
+    return new Promise((resolve, reject) => {
+      jobs.set(id, { resolve, reject });
+      worker.postMessage({ id, rgba, width: img.width, height: img.height, options }, [rgba.buffer]);
+    });
+  }
+
+  // Os ajustes valem para a resolução final; `k` adapta os que são medidos em pixels
+  // quando a prévia roda numa versão menor da imagem.
+  function vtracerOptions(k = 1) {
+    const o = {
+      mode: state.curve,
+      hierarchical: state.stack,
+      filterSpeckle: Math.round(state.speckle * k),
+      cornerThreshold: state.corners,
+      optimize: 2,
+    };
+    if (state.smooth > 0 && state.curve !== "pixel") o.simplify = Math.max(0.2, (state.smooth / 10) * k);
+    if (state.bw) {
+      o.clustering = "bw";
+      if (state.adaptive) o.adaptive = true;
+      else o.binaryThreshold = state.threshold;
+    } else {
+      if (state.preset) o.preset = state.preset;
+      o.clustering = "color-cluster";
+      if (state.colors <= 64) o.maxColors = state.colors;
+    }
+    return o;
+  }
+
+  // ---------- Imagem ----------
+  async function decode(bytes, mtype) {
+    return createImageBitmap(new Blob([bytes], { type: mtype }));
+  }
+
+  // Só reduz (nunca amplia): ampliar cria degraus que o motor transforma em curvas tortas.
+  const fitScale = (w, h, maxSide) => Math.min(1, maxSide / Math.max(w, h));
+  function rasterize(bmp, maxSide) {
+    const s = fitScale(bmp.width, bmp.height, maxSide);
+    const w = Math.max(1, Math.round(bmp.width * s)), h = Math.max(1, Math.round(bmp.height * s));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(bmp, 0, 0, w, h);
+    return ctx.getImageData(0, 0, w, h);
+  }
+
+  // Remove o fundo por preenchimento a partir das bordas (não apaga áreas internas da mesma cor).
+  function removeBackground(img, tol) {
+    const { width: w, height: h, data: s } = img;
+    const counts = new Map();
+    const border = [];
+    for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+    for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
+    for (const p of border) {
+      const i = p * 4;
+      if (s[i + 3] < 128) continue;
+      const k = ((s[i] >> 4) << 8) | ((s[i + 1] >> 4) << 4) | (s[i + 2] >> 4);
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    if (!counts.size) return img;
+    let best = -1, bestN = 0;
+    counts.forEach((n, k) => { if (n > bestN) { bestN = n; best = k; } });
+    let r = 0, g = 0, b = 0, n = 0;
+    for (const p of border) {
+      const i = p * 4;
+      if (s[i + 3] < 128) continue;
+      const k = ((s[i] >> 4) << 8) | ((s[i + 1] >> 4) << 4) | (s[i + 2] >> 4);
+      if (k === best) { r += s[i]; g += s[i + 1]; b += s[i + 2]; n++; }
+    }
+    r /= n; g /= n; b /= n;
+    const max = (tol / 100 * 441) ** 2;
+    const close = (i) => { const dr = s[i] - r, dg = s[i + 1] - g, db = s[i + 2] - b; return dr * dr + dg * dg + db * db <= max; };
+    const out = new ImageData(new Uint8ClampedArray(s), w, h);
+    const d = out.data;
+    const seen = new Uint8Array(w * h);
+    const stack = [];
+    for (const p of border) if (!seen[p] && (s[p * 4 + 3] < 128 || close(p * 4))) { seen[p] = 1; stack.push(p); }
+    while (stack.length) {
+      const p = stack.pop();
+      d[p * 4 + 3] = 0;
+      const x = p % w, y = (p - x) / w;
+      const nb = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1];
+      for (const q of nb) {
+        if (q < 0 || seen[q]) continue;
+        if (s[q * 4 + 3] < 128 || close(q * 4)) { seen[q] = 1; stack.push(q); }
+      }
+    }
+    return out;
+  }
+
+  // Ajusta a imagem para o motor: transparência vira 0 ou 255 (sem halo); no modo
+  // preto e branco, o transparente vira branco para não ser lido como tinta.
+  function prepare(img) {
+    let out = state.removeBg ? removeBackground(img, state.bgTol) : new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
+    const d = out.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) {
+        if (state.bw) { d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = 255; }
+        else d[i + 3] = 0;
+      } else d[i + 3] = 255;
+    }
+    return out;
+  }
+
+  // Ajusta o SVG para o Penpot: viewBox no tamanho traçado e largura/altura de exibição.
+  function finalizeSvg(svg, tw, th, dw, dh) {
+    svg = svg.replace(/<\?xml[^>]*>\s*/, "").replace(/<!--[\s\S]*?-->\s*/g, "");
+    if (!state.bw) svg = mergeColors(svg);
+    return svg.replace(/<svg\b[^>]*>/, () =>
+      `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 ${tw} ${th}" width="${dw}" height="${dh}">`);
+  }
+
+  // Junta cores quase iguais (ex.: cada letra saindo com um azul ligeiramente diferente)
+  // numa só, para o resultado no Penpot ficar com uma paleta limpa.
+  function mergeColors(svg, tol = 20) {
+    const freq = new Map();
+    for (const m of svg.matchAll(/<path d="([^"]*)" fill="(#[0-9A-Fa-f]{6})"/g)) {
+      const c = m[2].toUpperCase();
+      freq.set(c, (freq.get(c) || 0) + m[1].length);
+    }
+    const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const reps = [], map = new Map();
+    for (const [c] of [...freq].sort((a, b) => b[1] - a[1])) {
+      const [r, g, b] = rgb(c);
+      const hit = reps.find(([rr, rg, rb]) => Math.hypot(r - rr, g - rg, b - rb) <= tol);
+      if (hit) map.set(c, hit[3]); else { reps.push([r, g, b, c]); map.set(c, c); }
+    }
+    return svg.replace(/fill="(#[0-9A-Fa-f]{6})"/g, (all, c) => `fill="${map.get(c.toUpperCase()) || c}"`);
+  }
+
+  const countShapes = (svg) => (svg.match(/<path\b/g) || []).length;
+  const countColors = (svg) => new Set(svg.match(/fill="#[0-9a-fA-F]{3,8}"/g) || []).size;
+
+  // ---------- Prévia ----------
+  let vecUrl = null;
+  function showView() {
+    const has = !!state.source;
+    const showVec = has && state.view === "vec" && !!vecUrl;
+    $("vec").style.display = showVec ? "block" : "none";
+    $("orig").style.display = has && !showVec ? "block" : "none";
+    document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b.dataset.v === state.view));
+    $("view").hidden = !has;
+  }
+
+  let running = false, again = false, previewTimer = 0;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(runPreview, 160);
+  }
+  async function runPreview() {
+    if (!state.source) return;
+    if (running) { again = true; return; }
+    running = true; $("spin").style.display = "block";
+    const src = state.source;
+    try {
+      const img = prepare(src.preview);
+      const k = fitScale(src.w, src.h, PREVIEW_SIDE) / fitScale(src.w, src.h, state.quality);
+      const t0 = performance.now();
+      let svg = await trace(img, vtracerOptions(k));
+      const ms = Math.round(performance.now() - t0);
+      if (src !== state.source) return;
+      svg = finalizeSvg(svg, img.width, img.height, img.width, img.height);
+      if (vecUrl) URL.revokeObjectURL(vecUrl);
+      vecUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      $("vec").src = vecUrl;
+      const shapes = countShapes(svg);
+      $("stats").innerHTML =
+        `<span><b>${shapes.toLocaleString()}</b> ${t("shapes")}</span>` +
+        `<span><b>${countColors(svg)}</b> ${t("palette")}</span>` +
+        `<span><b>${ms}</b> ms</span>`;
+      const warn = shapes > 2500 ? t("tooMany") : state.style === "photo" ? t("photoNote") : "";
+      $("warn").textContent = warn; $("warn").style.display = warn ? "block" : "none";
+      if (statusEl.className === "err") { statusEl.className = ""; statusEl.textContent = ""; }
+      showView();
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally {
+      running = false; $("spin").style.display = "none";
+      if (again) { again = false; runPreview(); }
+    }
+  }
+
+  let loadToken = 0;
+  async function onSelection(shapes) {
+    state.shapes = shapes;
+    renderSelection();
+    const first = shapes[0];
+    if (!first) {
+      state.source = null; state.lastSvg = null; $("stats").innerHTML = ""; $("warn").style.display = "none";
+      showView(); renderSelection(); return;
+    }
+    if (state.source && state.source.id === first.id) return;
+    const token = ++loadToken;
+    state.source = null; showView();
+    $("empty").textContent = t("loading"); $("empty").style.display = "block";
+    try {
+      const res = await request("get-image", { shapeId: first.id });
+      const bmp = await decode(res.bytes, res.mtype);
+      if (token !== loadToken) return;
+      const preview = rasterize(bmp, PREVIEW_SIDE);
+      const oc = $("orig"); oc.width = preview.width; oc.height = preview.height;
+      oc.getContext("2d").putImageData(preview, 0, 0);
+      const src = { id: first.id, preview, w: bmp.width, h: bmp.height };
+      bmp.close && bmp.close();
+      state.source = src;
+      $("empty").style.display = "none";
+      renderSelection(); showView(); runPreview();
+    } catch (err) {
+      if (token !== loadToken) return;
+      state.source = null;
+      $("empty").textContent = t("error") + errText(err);
+    }
+  }
+
+  function renderSelection() {
+    const n = state.shapes.length;
+    if (!n) { $("empty").textContent = t("empty"); $("empty").style.display = "block"; }
+    $("count").style.display = n > 1 ? "block" : "none";
+    $("count").textContent = `+${n - 1}`;
+    $("apply").disabled = !n;
+    $("apply").textContent = n > 1 ? t("applyMany", { n }) : t("applyOne");
+    $("download").disabled = !state.source;
+    $("copy").disabled = !state.source;
+  }
+
+  // ---------- Controles ----------
+  function syncControls() {
+    document.querySelectorAll("#styles button").forEach((b) => b.classList.toggle("on", b.dataset.s === state.style));
+    $("colorCtl").hidden = state.bw;
+    $("bwCtl").hidden = !state.bw || state.adaptive;
+    $("adaptiveRow").hidden = !state.bw;
+    $("adaptive").checked = !!state.adaptive;
+    for (const k of ["colors", "threshold", "speckle", "smooth", "corners", "bgTol"]) $(k).value = state[k];
+    $("colorsVal").textContent = state.colors > 64 ? t("auto") : state.colors;
+    $("thresholdVal").textContent = state.threshold;
+    $("speckleVal").textContent = state.speckle;
+    $("smoothVal").textContent = (state.smooth / 10).toFixed(1);
+    $("cornersVal").textContent = state.corners + "°";
+    $("bgTolVal").textContent = state.bgTol;
+    $("removeBg").checked = state.removeBg;
+    $("bgTolRow").hidden = !state.removeBg;
+    document.querySelectorAll("#curve button").forEach((b) => b.classList.toggle("on", b.dataset.c === state.curve));
+    document.querySelectorAll("#stack button").forEach((b) => b.classList.toggle("on", b.dataset.h === state.stack));
+    document.querySelectorAll("#quality button").forEach((b) => b.classList.toggle("on", Number(b.dataset.q) === state.quality));
+    document.querySelectorAll("#place button").forEach((b) => b.classList.toggle("on", b.dataset.p === state.placement));
+    $("placeHint").textContent = t(state.placement === "over" ? "hintOver" : "hintSide");
+  }
+
+  function save() {
+    const { shapes, source, lastSvg, view, ...cfg } = state;
+    store.set("tracevector-cfg", JSON.stringify(cfg));
+  }
+  function changed() { syncControls(); save(); schedulePreview(); }
+
+  $("styles").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-s]");
+    if (!b) return;
+    const st = STYLES[b.dataset.s];
+    Object.assign(state, { preset: null, adaptive: false }, st, { style: b.dataset.s });
+    changed();
+  });
+  const slider = (id) => $(id).addEventListener("input", (e) => {
+    state[id] = Number(e.target.value); syncControls(); save(); schedulePreview();
+  });
+  ["colors", "threshold", "speckle", "smooth", "corners", "bgTol"].forEach(slider);
+  $("removeBg").addEventListener("change", (e) => { state.removeBg = e.target.checked; changed(); });
+  $("adaptive").addEventListener("change", (e) => { state.adaptive = e.target.checked; changed(); });
+  const seg = (id, attr, key, num) => $(id).addEventListener("click", (e) => {
+    const b = e.target.closest(`button[data-${attr}]`);
+    if (!b) return;
+    state[key] = num ? Number(b.dataset[attr]) : b.dataset[attr];
+    if (key === "placement") { syncControls(); save(); return; }
+    changed();
+  });
+  seg("curve", "c", "curve"); seg("stack", "h", "stack"); seg("quality", "q", "quality", true); seg("place", "p", "placement");
+  $("view").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (b) { state.view = b.dataset.v; showView(); }
+  });
+
+  // ---------- Vetorizar em resolução de trabalho ----------
+  async function fullSvg(shape) {
+    const res = await request("get-image", { shapeId: shape.id });
+    const bmp = await decode(res.bytes, res.mtype);
+    const img = prepare(rasterize(bmp, state.quality));
+    bmp.close && bmp.close();
+    const svg = await trace(img, vtracerOptions());
+    if (!countShapes(svg)) throw new Error("EMPTY_SVG");
+    return finalizeSvg(svg, img.width, img.height, img.width, img.height);
+  }
+
+  function busy(on) {
+    document.querySelectorAll("button, input").forEach((el) => {
+      if (el.closest("#view")) return;
+      el.disabled = on;
+    });
+    if (!on) renderSelection();
+  }
+
+  $("apply").addEventListener("click", async () => {
+    const list = state.shapes.slice();
+    if (!list.length) return;
+    busy(true); statusEl.className = "";
+    const created = [];
+    try {
+      for (let i = 0; i < list.length; i++) {
+        statusEl.textContent = t("progress", { i: i + 1, n: list.length });
+        const svg = await fullSvg(list[i]);
+        const r = await request("insert-svg", { shapeId: list[i].id, svg, placement: state.placement, name: `${list[i].name} (vector)` });
+        created.push(r.id);
+      }
+      await request("select", { ids: created }).catch(() => {});
+      statusEl.textContent = t("done", { n: created.length });
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally { busy(false); }
+  });
+
+  const safeName = (s) => (s || "vector").replace(/[\\/:*?"<>|]+/g, "-").trim() || "vector";
+
+  $("download").addEventListener("click", async () => {
+    const first = state.shapes[0];
+    if (!first) return;
+    busy(true); statusEl.className = ""; statusEl.textContent = t("tracing");
+    try {
+      const svg = await fullSvg(first);
+      const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = `${safeName(first.name)}.svg`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      statusEl.textContent = "";
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally { busy(false); }
+  });
+
+  $("copy").addEventListener("click", async () => {
+    const first = state.shapes[0];
+    if (!first) return;
+    busy(true); statusEl.className = ""; statusEl.textContent = t("tracing");
+    try {
+      const svg = await fullSvg(first);
+      try { await navigator.clipboard.writeText(svg); }
+      catch (e) {
+        const ta = document.createElement("textarea");
+        ta.value = svg; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+      }
+      statusEl.textContent = t("copied");
+    } catch (err) {
+      statusEl.className = "err"; statusEl.textContent = t("error") + errText(err);
+    } finally { busy(false); }
+  });
+
+  function applyLang() {
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : lang;
+    $("lang").value = lang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    syncControls();
+    renderSelection();
+    if (state.source) runPreview();
+  }
+  $("lang").addEventListener("change", (e) => {
+    lang = e.target.value; store.set("tracevector-lang", lang); statusEl.textContent = ""; applyLang();
+  });
+
+  applyLang();
+  showView();
+  send({ type: "ready" });
+})();
+</script>
+</body>
+</html>

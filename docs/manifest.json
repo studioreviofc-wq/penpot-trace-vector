@@ -1,0 +1,8 @@
+{
+  "name": "Trace Vector",
+  "description": "Turn images into editable vectors (SVG): logos, icons and illustrations, in color or black and white, with live preview.",
+  "code": "plugin.js",
+  "icon": "icon.svg",
+  "version": 2,
+  "permissions": ["content:read", "content:write", "allow:downloads"]
+}
